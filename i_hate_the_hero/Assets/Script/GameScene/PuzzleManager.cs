@@ -9,6 +9,8 @@ public class PuzzleManager : MonoBehaviour {
 
 	//オブジェクト参照
 	public GameObject ballPrefab; //ボールプレハブ
+	public GameObject containerLine; //ラインコンテナ
+	public GameObject linePrefab; //ラインプレハブ
 	public GameObject countDown; //カウントダウンタイマーとなるオブジェクト
 	public GameObject timer; //制限時間タイマーとなるオブジェクト
 	public GameObject score; //スコア表示
@@ -120,19 +122,6 @@ public class PuzzleManager : MonoBehaviour {
 	}
 
 	private void OnDragStart(){
-		/*
-		Collider2D col = GetCurrentHitCollider ();//現在マウスカーソルの位置
-		if (col != null) {
-			//何かをドラッグしている時
-			GameObject colObj = col.gameObject;
-			if(colObj.name.IndexOf("Ball") != -1){
-				//名前に"Ball"を含むオブジェクトをドラッグした時
-				removableBallList = new List<GameObject>(); 
-				firstBall = colObj; //はじめにドラッグしたボールを現在のボールに設定
-				currentName = colObj.name; //現在のリストのボールの名前を設定
-				PushToList(colObj);
-			}
-		}*/
 
 		PointerEventData pointer = new PointerEventData(EventSystem.current);
 		pointer.position = Input.mousePosition;
@@ -148,7 +137,7 @@ public class PuzzleManager : MonoBehaviour {
 				removableBallList = new List<GameObject>(); 
 				firstBall = colObj; //はじめにドラッグしたボールを現在のボールに設定
 				currentName = colObj.name; //現在のリストのボールの名前を設定
-				PushToList(colObj);
+				CheckList(colObj);
 			}
 		}
 	}
@@ -171,10 +160,14 @@ public class PuzzleManager : MonoBehaviour {
 				for (int j = 0; j < length; j++) {
 					GameObject listedBall = removableBallList [j];
 					ChangeColor (listedBall, 1.0f); //アルファ値を戻す
-					listedBall.name = listedBall.name.Substring (1, 5);
+					listedBall.transform.GetChild(0).gameObject.SetActive(false); //点を非表示
+					//listedBall.name = listedBall.name.Substring (1, 5);
 				}
 			}
 			firstBall = null; //変数の初期化
+		}
+		for(int i=0;i<containerLine.transform.childCount;i++){
+			Destroy(containerLine.transform.GetChild(i).gameObject);
 		}
 	}
 
@@ -195,38 +188,75 @@ public class PuzzleManager : MonoBehaviour {
 					float dist = Vector2.Distance (lastBall.transform.position, colObj.transform.position);
 					if (dist <= 1.5) {
 						//ボール間の距離が一定値以下の時
-						PushToList (colObj); //消去するリストにボールを追加
+						CheckList (colObj); //消去するリストにボールを追加
 					}
 				}
 			}
 		}
+	}
 
-		/*
-		Collider2D col = GetCurrentHitCollider ();
-		if (col != null) {
-			//何かをドラッグしている時
-			GameObject colObj = col.gameObject;
-			if (colObj.name == currentName) {
-				//現在リストに追加している色と同じ色のボールの時
-				if (lastBall != colObj) {
-					//直前にリストに入れたのと異なるボールの時
-					float dist = Vector2.Distance (lastBall.transform.position, colObj.transform.position);
-					if (dist <= 1.5) {
-						//ボール間の距離が一定値以下の時
-						PushToList (colObj); //消去するリストにボールを追加
-					}
+	private void CheckList(GameObject obj){
+		if(removableBallList.Count == 0){
+			//最初のボールなら追加
+			PushToList(obj);
+		}else{
+			if(!isExist(obj)){
+				//リストに入ってなかったら追加
+				PushToList(obj);
+			}else{
+				//リストに入ってた場合
+				if(removableBallList.Count >= 2){
+					//現在のボールが一個前のボールだったら
+					if(removableBallList[removableBallList.Count-2]==obj)PopList();
 				}
 			}
 		}
-		*/
+	}
+
+	private bool isExist(GameObject obj){
+		for(int i=0;i<removableBallList.Count;i++){
+			if(removableBallList[i] == obj)return true;
+		}
+		return false;
+	}
+
+	//リストの最後尾を取り除く
+	private void PopList(){
+		ChangeColor(removableBallList[removableBallList.Count-1],1f); //最後尾のボールを通常に戻す
+		removableBallList[removableBallList.Count-1].transform.GetChild(0).gameObject.SetActive(false); //点を非表示
+		removableBallList.RemoveAt(removableBallList.Count-1); //最後尾を削除
+		lastBall = removableBallList[removableBallList.Count-1]; //lasBallを現在の最後尾に変更
+		DrawLine();
+		
 	}
 
 	void PushToList(GameObject obj){
 		lastBall = obj; //直前にドラッグしたボールに現在のボールを追加
 		ChangeColor(obj, 0.5f); //現在のボールを半透明にする
+		obj.transform.GetChild(0).gameObject.SetActive(true); //点を表示
 		removableBallList.Add(obj); //消去するリストに現在のボールを追加
-		obj.name = "_" + obj.name; //区別するため、消去するボールのリストに加えたボールの名前を変更
+		DrawLine();
+		//obj.name = "_" + obj.name; //区別するため、消去するボールのリストに加えたボールの名前を変更
 	}
+
+	private void DrawLine(){
+		for(int i=0;i<containerLine.transform.childCount;i++){
+			Destroy(containerLine.transform.GetChild(i).gameObject);
+		}
+		for(int i=0;i<removableBallList.Count-1;i++){
+			GameObject newLine = (GameObject)Instantiate(linePrefab);
+			newLine.transform.SetParent(containerLine.transform,false);
+        	//LineRenderer line = newLine.AddComponent<LineRenderer> ();
+			LineRenderer line = newLine.GetComponent<LineRenderer>();
+			line.SetPosition(0,removableBallList[i].transform.position + new Vector3(0,0,-10));
+			line.SetPosition(1,removableBallList[i+1].transform.position + new Vector3(0,0,-10));
+			line.startWidth = 0.05f;
+			line.endWidth = 0.05f;
+		}
+	}
+
+
+
 
 	Collider2D GetCurrentHitCollider(){
 		RaycastHit2D hit = Physics2D.Raycast (Camera.main.ScreenToWorldPoint (Input.mousePosition), Vector2.zero);
