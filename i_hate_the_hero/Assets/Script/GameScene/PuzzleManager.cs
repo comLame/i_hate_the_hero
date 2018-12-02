@@ -15,6 +15,7 @@ public class PuzzleManager : MonoBehaviour {
 	public GameObject timer; //制限時間タイマーとなるオブジェクト
 	public GameObject score; //スコア表示
 	public Sprite[] ballSprite = new Sprite[5]; //ボールの画像
+	public bool isPlaying = true; //プレイ中かどうか
 
 	//メンバ変数
 	private GameObject canvasGame; //CanvasGame
@@ -23,7 +24,6 @@ public class PuzzleManager : MonoBehaviour {
 	private List<List<GameObject>> ballArr = new List<List<GameObject>>(); 
 	private List<GameObject> removableBallList; //消去するボールのリスト
 	private string currentName; //現在リストにあるボールの名前
-	private bool isPlaying = true; //プレイ中かどうか
 	private Text timerText; //タイマーのテキスト
 	private Text countDownText; //カウントダウンのテキスト
 	private Text scoreText; //スコアテキスト
@@ -78,8 +78,6 @@ public class PuzzleManager : MonoBehaviour {
 	private IEnumerator DropBall(int count){
 		for (int i = 0; i < count; i++) {
 
-			
-			
 			//ボールのプレハブを読み込み
 			GameObject ball = (GameObject)Instantiate (ballPrefab); 
 			GameObject container = canvasGame.transform.Find("Field").Find("ContainerDrop").gameObject;
@@ -151,6 +149,10 @@ public class PuzzleManager : MonoBehaviour {
 		}
 	}
 
+	public void DropBallP(int num){
+		StartCoroutine("DropBall",num);
+	}
+
 	private void OnDragEnd(){
 		if(firstBall != null){
 			//1つ以上のボールをなぞっている時
@@ -161,33 +163,16 @@ public class PuzzleManager : MonoBehaviour {
 
 				lineNum++;
 				ballArr.Add(removableBallList);
+				
 				for(int i=0;i<length;i++){
-					removableBallList[i].name = "_";
+					removableBallList[i].name = "_" + currentName;
 				}
 				//3つ目だったら攻撃
 				if(lineNum == 3){
 					ballArr.Add(removableBallList);
-					int ballCount = 0;
-					for(int i=0;i<3;i++){
-						List<GameObject> balls =  ballArr[i];
-						for(int j=0;j<balls.Count;j++){
-							ballCount++;
-							Destroy(balls[j]);
-						}
-					}
+					this.GetComponent<BattleManager>().Attack(ballArr);
 
-					//ボールを生成
-					StartCoroutine ("DropBall", ballCount);
-
-					for(int i=0;i<3;i++){
-						GameObject lines = containerLine.transform.GetChild(i).gameObject;
-						for(int j=0;j<lines.transform.childCount;j++){
-							
-							Destroy(lines.transform.GetChild(j).gameObject);
-						}
-					}
-
-					ballArr.Clear();
+					//ballArr.Clear();
 					lineNum = 0;
 				}
 
