@@ -20,6 +20,7 @@ public class PuzzleManager : MonoBehaviour {
 	private GameObject canvasGame; //CanvasGame
 	private GameObject firstBall; //最初にタッチしたボール
 	private GameObject lastBall; //直前にドラッグしたボール
+	private List<List<GameObject>> ballArr = new List<List<GameObject>>(); 
 	private List<GameObject> removableBallList; //消去するボールのリスト
 	private string currentName; //現在リストにあるボールの名前
 	private bool isPlaying = true; //プレイ中かどうか
@@ -31,6 +32,7 @@ public class PuzzleManager : MonoBehaviour {
 	private int currentScore = 0; //現在のスコア
 	private float screenW; //画面の幅
 	private float screenH; //画面の高さ
+	private int lineNum = 0; //ラインの数
 
 	// Use this for initialization
 	void Start () {
@@ -75,6 +77,8 @@ public class PuzzleManager : MonoBehaviour {
 	//count個ボールを降らせる
 	private IEnumerator DropBall(int count){
 		for (int i = 0; i < count; i++) {
+
+			
 			
 			//ボールのプレハブを読み込み
 			GameObject ball = (GameObject)Instantiate (ballPrefab); 
@@ -93,7 +97,12 @@ public class PuzzleManager : MonoBehaviour {
 			*/
 
 			//ボールの画像のidをランダムに設定し名前と画像をidに合わせて変更
-			int spriteId = Random.Range (0, 5);
+			int spriteId = Random.Range (0, 4);
+			if(spriteId == 3){
+				//回復だった時
+				ball.GetComponent<CircleCollider2D>().enabled = false;
+				ball.GetComponent<BoxCollider2D>().enabled = true;
+			}
 			ball.name = "Ball" + spriteId;
 			//ball.GetComponent<SpriteRenderer> ().sprite = ballSprite [spriteId];
 			ball.GetComponent<Image>().sprite = ballSprite [spriteId];
@@ -146,15 +155,48 @@ public class PuzzleManager : MonoBehaviour {
 		if(firstBall != null){
 			//1つ以上のボールをなぞっている時
 			int length = removableBallList.Count;
+			//Debug.Log("リストの要素数: " + removableBallList.Count);
 			if (length >= 3) {
 				//消去するリストに３個以上のボールがあれば
-				for (int i = 0; i < length; i++) {
-					Destroy (removableBallList [i]); //リストにあるボールを消去
+
+				lineNum++;
+				ballArr.Add(removableBallList);
+				for(int i=0;i<length;i++){
+					removableBallList[i].name = "_";
+				}
+				//3つ目だったら攻撃
+				if(lineNum == 3){
+					ballArr.Add(removableBallList);
+					int ballCount = 0;
+					for(int i=0;i<3;i++){
+						List<GameObject> balls =  ballArr[i];
+						for(int j=0;j<balls.Count;j++){
+							ballCount++;
+							Destroy(balls[j]);
+						}
+					}
+
+					//ボールを生成
+					StartCoroutine ("DropBall", ballCount);
+
+					for(int i=0;i<3;i++){
+						GameObject lines = containerLine.transform.GetChild(i).gameObject;
+						for(int j=0;j<lines.transform.childCount;j++){
+							
+							Destroy(lines.transform.GetChild(j).gameObject);
+						}
+					}
+
+					ballArr.Clear();
+					lineNum = 0;
 				}
 
-				currentScore += (CalculateBaseScore(length) + 50 * length);
+				
+				//currentScore += (CalculateBaseScore(length) + 50 * length);
+				//StartCoroutine ("DropBall", length); //消した分だけボールを生成
 
-				StartCoroutine ("DropBall", length); //消した分だけボールを生成
+
+
 			} else {
 				//消去するリストに3個以上ボールがない時
 				for (int j = 0; j < length; j++) {
@@ -163,12 +205,13 @@ public class PuzzleManager : MonoBehaviour {
 					listedBall.transform.GetChild(0).gameObject.SetActive(false); //点を非表示
 					//listedBall.name = listedBall.name.Substring (1, 5);
 				}
+				for(int i=0;i<containerLine.transform.GetChild(lineNum).childCount;i++){
+					Destroy(containerLine.transform.GetChild(lineNum).GetChild(i).gameObject);
+				}
 			}
 			firstBall = null; //変数の初期化
 		}
-		for(int i=0;i<containerLine.transform.childCount;i++){
-			Destroy(containerLine.transform.GetChild(i).gameObject);
-		}
+
 	}
 
 	private void OnDragging(){
@@ -227,7 +270,6 @@ public class PuzzleManager : MonoBehaviour {
 		removableBallList.RemoveAt(removableBallList.Count-1); //最後尾を削除
 		lastBall = removableBallList[removableBallList.Count-1]; //lasBallを現在の最後尾に変更
 		DrawLine();
-		
 	}
 
 	void PushToList(GameObject obj){
@@ -240,12 +282,12 @@ public class PuzzleManager : MonoBehaviour {
 	}
 
 	private void DrawLine(){
-		for(int i=0;i<containerLine.transform.childCount;i++){
-			Destroy(containerLine.transform.GetChild(i).gameObject);
+		for(int i=0;i<containerLine.transform.GetChild(lineNum).childCount;i++){
+			Destroy(containerLine.transform.GetChild(lineNum).GetChild(i).gameObject);
 		}
 		for(int i=0;i<removableBallList.Count-1;i++){
 			GameObject newLine = (GameObject)Instantiate(linePrefab);
-			newLine.transform.SetParent(containerLine.transform,false);
+			newLine.transform.SetParent(containerLine.transform.GetChild(lineNum),false);
         	//LineRenderer line = newLine.AddComponent<LineRenderer> ();
 			LineRenderer line = newLine.GetComponent<LineRenderer>();
 			line.SetPosition(0,removableBallList[i].transform.position + new Vector3(0,0,-10));
